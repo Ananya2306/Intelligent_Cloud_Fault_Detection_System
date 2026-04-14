@@ -3,6 +3,5 @@ numpy
 scikit-learn
 matplotlib
 joblib
-tensorflow
 uvicorn
 fastapi
