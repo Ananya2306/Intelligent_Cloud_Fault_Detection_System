@@ -309,3 +309,12 @@ MINOR/
 
 ---
 
+## Authors
+
+Ananya¹, Kashish Aggarwal¹, Naina¹, Mridul Sharma¹, Khalid Raza Khan¹  
+
+¹Department of Computer Science Engineering (AI & ML),  
+IILM University, Greater Noida, Uttar Pradesh, India  
+
+**Corresponding Author:** Ananya  
+**Faculty Guide:** Ms. Niharika Chaudhary
