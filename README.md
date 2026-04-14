@@ -229,16 +229,21 @@ F1 Score: 0.9729
 
 ## 📌 12. Deployment
 Backend:
+
 ```
 Platform: Render
 Framework: FastAPI
 ```
+
 Frontend:
+
 ```
 Platform: Netlify
 Static deployment
-``
+```
+
 Live Architecture:
+
 ```
 User → Netlify UI → Render API → ML Model → Response
 ```
@@ -263,16 +268,20 @@ This project demonstrates a complete AI-powered fault detection system integrati
 
 ## 📌 15. How to Run Locally
 Backend:
+
 ```
 uvicorn backend.app:app --reload
 ```
 
 Frontend:
+
 ```
 cd frontend
 python -m http.server 5500
 ```
+
 Open:
+
 ```
 http://127.0.0.1:5500
 ```
@@ -280,6 +289,7 @@ http://127.0.0.1:5500
 ---
 
 📌 16. Project Structure
+
 ```
 MINOR/
 │
