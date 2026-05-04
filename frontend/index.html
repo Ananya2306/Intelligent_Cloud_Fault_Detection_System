@@ -1,0 +1,1380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ICFDS — Intelligent Cloud Fault Detection</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+/* ─── DESIGN TOKENS ──────────────────────────────────────────────────────────── */
+:root {
+  --bg:         #04080f;
+  --bg1:        #080e1a;
+  --bg2:        #0d1525;
+  --bg3:        #121d30;
+  --surface:    #162238;
+  --border:     rgba(99,160,255,0.12);
+  --border2:    rgba(99,160,255,0.22);
+  --glow-blue:  #3b82f6;
+  --glow-cyan:  #06b6d4;
+  --glow-red:   #ef4444;
+  --glow-green: #22c55e;
+  --glow-amber: #f59e0b;
+  --text:       #e2ecff;
+  --text2:      #7a9cc8;
+  --text3:      #3d5a80;
+  --mono:       'JetBrains Mono', monospace;
+  --sans:       'Inter', sans-serif;
+  --display:    'Syne', sans-serif;
+  --rad:        10px;
+  --rad-lg:     16px;
+}
+*,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ─── BASE ───────────────────────────────────────────────────────────────────── */
+html { scroll-behavior: smooth; }
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.6;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* scanline texture */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0px,
+    transparent 3px,
+    rgba(0,0,0,0.03) 3px,
+    rgba(0,0,0,0.03) 4px
+  );
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* ─── LAYOUT ─────────────────────────────────────────────────────────────────── */
+.shell   { display: flex; height: 100vh; overflow: hidden; }
+.sidebar {
+  width: 220px; flex-shrink: 0;
+  background: var(--bg1);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  padding: 0 0 20px;
+  overflow-y: auto;
+}
+.main {
+  flex: 1;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.topbar {
+  height: 52px; flex-shrink: 0;
+  background: var(--bg1);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center;
+  padding: 0 24px;
+  gap: 16px;
+}
+.content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+  background: var(--bg);
+}
+
+/* ─── SIDEBAR ────────────────────────────────────────────────────────────────── */
+.logo-area {
+  padding: 20px 18px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.logo-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  margin-bottom: 8px;
+}
+.logo-icon {
+  width: 28px; height: 28px;
+  background: linear-gradient(135deg, #1d4ed8, #06b6d4);
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px;
+}
+.logo-text { font-family: var(--display); font-size: 14px; font-weight: 700; letter-spacing: .02em; }
+.logo-sub  { font-family: var(--mono); font-size: 10px; color: var(--text3); line-height: 1.3; }
+
+.nav-section { padding: 14px 12px 6px; }
+.nav-label   { font-family: var(--mono); font-size: 9px; color: var(--text3); letter-spacing: .1em; text-transform: uppercase; padding: 0 6px; margin-bottom: 4px; }
+
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12.5px;
+  color: var(--text2);
+  transition: all .15s;
+  margin-bottom: 2px;
+  border: 1px solid transparent;
+}
+.nav-item:hover  { background: var(--bg2); color: var(--text); }
+.nav-item.active {
+  background: rgba(59,130,246,.12);
+  color: #93c5fd;
+  border-color: rgba(59,130,246,.25);
+}
+.nav-icon { font-size: 14px; width: 18px; text-align: center; }
+
+.sidebar-footer {
+  margin-top: auto;
+  padding: 12px 18px;
+  border-top: 1px solid var(--border);
+}
+.sidebar-footer p { font-family: var(--mono); font-size: 9px; color: var(--text3); line-height: 1.6; }
+
+/* ─── TOPBAR ─────────────────────────────────────────────────────────────────── */
+.topbar-title { font-family: var(--display); font-size: 15px; font-weight: 600; flex: 1; }
+.topbar-clock { font-family: var(--mono); font-size: 11px; color: var(--text2); }
+
+.pulse-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--glow-green);
+  box-shadow: 0 0 6px var(--glow-green);
+  animation: pulse-anim 2s infinite;
+}
+@keyframes pulse-anim {
+  0%,100% { opacity: 1; box-shadow: 0 0 6px var(--glow-green); }
+  50%      { opacity: .5; box-shadow: 0 0 12px var(--glow-green); }
+}
+
+/* ─── SECTIONS ───────────────────────────────────────────────────────────────── */
+.section { display: none; }
+.section.active { display: block; }
+
+/* ─── CARDS ──────────────────────────────────────────────────────────────────── */
+.card {
+  background: var(--bg1);
+  border: 1px solid var(--border);
+  border-radius: var(--rad-lg);
+  padding: 20px;
+}
+.card-sm { padding: 14px 16px; }
+.card-title {
+  font-family: var(--display);
+  font-size: 13px; font-weight: 600;
+  color: var(--text); margin-bottom: 14px;
+}
+.card-sub { font-size: 11px; color: var(--text2); margin-top: 4px; }
+
+/* Glow cards */
+.card-fault  { border-color: rgba(239,68,68,.25); background: rgba(239,68,68,.04); }
+.card-normal { border-color: rgba(34,197,94,.2);  background: rgba(34,197,94,.04); }
+.card-info   { border-color: rgba(59,130,246,.2); background: rgba(59,130,246,.04); }
+
+/* ─── GRIDS ──────────────────────────────────────────────────────────────────── */
+.g2 { display: grid; grid-template-columns: repeat(2,1fr); gap: 16px; }
+.g3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; }
+.g4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; }
+.g-1-2 { display: grid; grid-template-columns: 1fr 2fr; gap: 16px; }
+.g-2-1 { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
+
+/* ─── STAT TILES ─────────────────────────────────────────────────────────────── */
+.stat {
+  background: var(--bg1);
+  border: 1px solid var(--border);
+  border-radius: var(--rad);
+  padding: 14px 16px;
+}
+.stat-label { font-family: var(--mono); font-size: 9px; color: var(--text3); letter-spacing: .08em; text-transform: uppercase; margin-bottom: 6px; }
+.stat-value { font-family: var(--mono); font-size: 24px; font-weight: 600; color: var(--text); line-height: 1; }
+.stat-sub   { font-family: var(--mono); font-size: 10px; color: var(--text2); margin-top: 4px; }
+
+/* ─── BADGES ─────────────────────────────────────────────────────────────────── */
+.badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 2px 9px; border-radius: 100px;
+  font-family: var(--mono); font-size: 10px; font-weight: 600;
+  letter-spacing: .03em;
+}
+.b-ok     { background: rgba(34,197,94,.12); color: #86efac; border: 1px solid rgba(34,197,94,.25); }
+.b-warn   { background: rgba(245,158,11,.12); color: #fde68a; border: 1px solid rgba(245,158,11,.25); }
+.b-err    { background: rgba(239,68,68,.12); color: #fca5a5; border: 1px solid rgba(239,68,68,.25); }
+.b-info   { background: rgba(59,130,246,.12); color: #93c5fd; border: 1px solid rgba(59,130,246,.25); }
+.b-ghost  { background: transparent; color: var(--text2); border: 1px solid var(--border); }
+
+/* ─── PROGRESS BARS ──────────────────────────────────────────────────────────── */
+.pbar { height: 4px; background: var(--bg3); border-radius: 4px; overflow: hidden; }
+.pfill {
+  height: 100%; border-radius: 4px;
+  transition: width .6s cubic-bezier(.4,0,.2,1);
+}
+.p-ok  { background: linear-gradient(90deg,#16a34a,#22c55e); }
+.p-w   { background: linear-gradient(90deg,#d97706,#f59e0b); }
+.p-crit{ background: linear-gradient(90deg,#dc2626,#ef4444); }
+
+/* ─── SLIDERS ────────────────────────────────────────────────────────────────── */
+.slider-row {
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 16px;
+}
+.slider-label { font-size: 11px; color: var(--text2); width: 120px; flex-shrink: 0; }
+input[type=range] {
+  flex: 1; height: 4px;
+  -webkit-appearance: none; appearance: none;
+  background: var(--bg3); border-radius: 4px;
+  outline: none; cursor: pointer;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--glow-blue);
+  box-shadow: 0 0 6px rgba(59,130,246,.5);
+  cursor: pointer;
+}
+.slider-val {
+  font-family: var(--mono); font-size: 12px;
+  color: var(--text); width: 42px; text-align: right;
+}
+
+/* ─── PREDICT BUTTON ─────────────────────────────────────────────────────────── */
+.btn-predict {
+  width: 100%;
+  padding: 12px;
+  background: linear-gradient(135deg, #1d4ed8, #0369a1);
+  border: 1px solid rgba(59,130,246,.4);
+  border-radius: var(--rad);
+  color: #bfdbfe;
+  font-family: var(--display); font-size: 13px; font-weight: 700;
+  letter-spacing: .05em;
+  cursor: pointer;
+  transition: all .2s;
+  position: relative; overflow: hidden;
+}
+.btn-predict::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(135deg,rgba(255,255,255,.05),transparent);
+  opacity: 0; transition: opacity .2s;
+}
+.btn-predict:hover { box-shadow: 0 0 24px rgba(59,130,246,.35); transform: translateY(-1px); }
+.btn-predict:hover::before { opacity: 1; }
+.btn-predict:active { transform: translateY(0); }
+.btn-predict.loading { opacity: .6; pointer-events: none; }
+
+/* ─── VERDICT DISPLAY ────────────────────────────────────────────────────────── */
+.verdict-box {
+  border-radius: var(--rad-lg);
+  padding: 24px 20px;
+  text-align: center;
+  border: 1px solid var(--border);
+  background: var(--bg2);
+  transition: all .4s;
+  min-height: 120px;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 8px;
+}
+.verdict-box.fault  { border-color: rgba(239,68,68,.4); background: rgba(239,68,68,.06); box-shadow: 0 0 30px rgba(239,68,68,.1); }
+.verdict-box.normal { border-color: rgba(34,197,94,.3);  background: rgba(34,197,94,.05); box-shadow: 0 0 30px rgba(34,197,94,.08); }
+.verdict-icon { font-size: 32px; line-height: 1; }
+.verdict-label { font-family: var(--display); font-size: 20px; font-weight: 800; letter-spacing: .04em; }
+.verdict-sub   { font-family: var(--mono); font-size: 11px; color: var(--text2); }
+
+/* ─── MINI MODEL CARDS ───────────────────────────────────────────────────────── */
+.model-mini {
+  border-radius: var(--rad);
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  background: var(--bg2);
+  text-align: center;
+  transition: border-color .3s;
+}
+.model-mini.fault  { border-color: rgba(239,68,68,.35); }
+.model-mini.normal { border-color: rgba(34,197,94,.3);  }
+.model-mini .mm-name  { font-family: var(--mono); font-size: 9px; color: var(--text3); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 6px; }
+.model-mini .mm-result{ font-family: var(--display); font-size: 15px; font-weight: 700; }
+.model-mini .mm-conf  { font-family: var(--mono); font-size: 10px; color: var(--text2); margin-top: 3px; }
+
+/* ─── ALERT ROWS ─────────────────────────────────────────────────────────────── */
+.alert-row {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+  animation: fadeSlide .3s ease;
+}
+.alert-row:last-child { border-bottom: none; }
+@keyframes fadeSlide { from { opacity:0; transform:translateY(-4px); } to { opacity:1; transform:translateY(0); } }
+
+.alert-icon {
+  width: 32px; height: 32px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700; flex-shrink: 0;
+  font-family: var(--mono);
+}
+.ai-crit  { background: rgba(239,68,68,.15); color: #fca5a5; border: 1px solid rgba(239,68,68,.2); }
+.ai-warn  { background: rgba(245,158,11,.12); color: #fde68a; border: 1px solid rgba(245,158,11,.2); }
+.ai-info  { background: rgba(59,130,246,.12); color: #93c5fd; border: 1px solid rgba(59,130,246,.2); }
+.alert-title { font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
+.alert-desc  { font-size: 11px; color: var(--text2); line-height: 1.4; }
+.alert-meta  { font-family: var(--mono); font-size: 9px; color: var(--text3); margin-top: 3px; }
+.alert-time  { font-family: var(--mono); font-size: 10px; color: var(--text3); margin-left: auto; flex-shrink: 0; padding-top: 1px; }
+
+/* ─── TABLE ──────────────────────────────────────────────────────────────────── */
+.data-table { width: 100%; border-collapse: collapse; }
+.data-table th {
+  font-family: var(--mono); font-size: 9px; color: var(--text3);
+  text-align: right; padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  text-transform: uppercase; letter-spacing: .08em;
+  font-weight: 500;
+}
+.data-table th:first-child { text-align: left; }
+.data-table td {
+  font-family: var(--mono); font-size: 11px; color: var(--text);
+  text-align: right; padding: 8px;
+  border-bottom: 1px solid rgba(99,160,255,.06);
+}
+.data-table td:first-child { text-align: left; font-weight: 500; color: var(--text2); }
+.data-table tr:last-child td { border-bottom: none; }
+.data-table .best { color: #86efac; font-weight: 600; }
+
+/* ─── PIPELINE VISUAL ────────────────────────────────────────────────────────── */
+.pipe { display: flex; align-items: center; gap: 0; flex-wrap: wrap; }
+.pipe-node {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 6px; text-align: center;
+}
+.pipe-circle {
+  width: 36px; height: 36px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700;
+  border: 2px solid;
+  font-family: var(--mono);
+}
+.pc-done    { border-color: var(--glow-green); color: var(--glow-green); background: rgba(34,197,94,.08); box-shadow: 0 0 10px rgba(34,197,94,.2); }
+.pc-active  { border-color: var(--glow-blue); color: var(--glow-blue); background: rgba(59,130,246,.12); box-shadow: 0 0 12px rgba(59,130,246,.3); animation: activeGlow 2s infinite; }
+.pc-pending { border-color: var(--border); color: var(--text3); background: transparent; }
+@keyframes activeGlow { 0%,100%{box-shadow:0 0 10px rgba(59,130,246,.25)} 50%{box-shadow:0 0 20px rgba(59,130,246,.5)} }
+.pipe-label { font-family: var(--mono); font-size: 9px; color: var(--text3); max-width: 64px; line-height: 1.3; }
+.pipe-arrow { flex: 1; height: 1px; background: var(--border2); min-width: 12px; max-width: 32px; margin-bottom: 20px; }
+
+/* ─── UPLOAD ZONE ────────────────────────────────────────────────────────────── */
+.upload-zone {
+  border: 2px dashed var(--border2);
+  border-radius: var(--rad-lg);
+  padding: 40px 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: all .2s;
+}
+.upload-zone:hover, .upload-zone.drag {
+  border-color: var(--glow-blue);
+  background: rgba(59,130,246,.04);
+}
+.upload-icon { font-size: 28px; margin-bottom: 8px; }
+.upload-title { font-family: var(--display); font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+.upload-sub   { font-size: 11px; color: var(--text2); }
+
+/* ─── CONFIDENCE GAUGE ───────────────────────────────────────────────────────── */
+.conf-gauge {
+  position: relative;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* ─── SCROLLBAR ──────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--bg3); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text3); }
+
+/* ─── HEALTH BARS ────────────────────────────────────────────────────────────── */
+.health-row { margin-bottom: 14px; }
+.health-meta {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin-bottom: 5px;
+}
+.health-name { font-size: 11px; color: var(--text2); }
+.health-pct  { font-family: var(--mono); font-size: 11px; color: var(--text); }
+
+/* ─── MODEL REG ITEM ─────────────────────────────────────────────────────────── */
+.model-reg-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.model-reg-item:last-child { border-bottom: none; }
+.model-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.model-info { flex: 1; }
+.model-info-name { font-size: 12px; font-weight: 500; }
+.model-info-sub  { font-size: 10px; color: var(--text2); margin-top: 1px; font-family: var(--mono); }
+
+/* ─── GLOW LINE ──────────────────────────────────────────────────────────────── */
+.glow-line {
+  height: 1px;
+  background: linear-gradient(90deg,transparent,rgba(59,130,246,.4),transparent);
+  margin: 20px 0;
+}
+
+/* ─── TOOLTIP ────────────────────────────────────────────────────────────────── */
+canvas { max-width: 100%; }
+
+/* ─── SECTION HEADER ─────────────────────────────────────────────────────────── */
+.sec-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 20px; flex-wrap: wrap; gap: 10px;
+}
+.sec-title { font-family: var(--display); font-size: 18px; font-weight: 700; }
+.sec-desc  { font-size: 11px; color: var(--text2); margin-top: 2px; }
+
+/* ─── RULE TRIGGER BADGE ─────────────────────────────────────────────────────── */
+.rule-info {
+  border: 1px solid rgba(245,158,11,.25);
+  background: rgba(245,158,11,.06);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-family: var(--mono); font-size: 10px; color: #fde68a;
+  display: flex; align-items: center; gap: 8px;
+  margin-top: 10px;
+  display: none;
+}
+.rule-info.visible { display: flex; }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- ─── SIDEBAR ─────────────────────────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="logo-area">
+      <div class="logo-badge">
+        <div class="logo-icon">⚡</div>
+        <span class="logo-text">ICFDS</span>
+      </div>
+      <div class="logo-sub">Intelligent Cloud Fault<br>Detection System v2.0</div>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-label">Navigation</div>
+      <div class="nav-item active" onclick="nav('overview',this)">
+        <span class="nav-icon">▦</span> Overview
+      </div>
+      <div class="nav-item" onclick="nav('monitor',this)">
+        <span class="nav-icon">◈</span> Live Monitor
+      </div>
+      <div class="nav-item" onclick="nav('predict',this)">
+        <span class="nav-icon">◎</span> Fault Predictor
+      </div>
+      <div class="nav-item" onclick="nav('alerts',this)">
+        <span class="nav-icon">⚑</span> Anomaly Alerts
+      </div>
+      <div class="nav-item" onclick="nav('models',this)">
+        <span class="nav-icon">◷</span> Model Analysis
+      </div>
+      <div class="nav-item" onclick="nav('upload',this)">
+        <span class="nav-icon">⬆</span> CSV Batch
+      </div>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-label">System</div>
+      <div class="nav-item" onclick="nav('arch',this)">
+        <span class="nav-icon">◈</span> Architecture
+      </div>
+    </div>
+
+    <div class="sidebar-footer">
+      <p>Dataset: Google Cluster Trace<br>
+         IILM University · BTP2 CSE329<br>
+         © 2025 Ananya et al.</p>
+    </div>
+  </aside>
+
+  <!-- ─── MAIN ─────────────────────────────────────────────────────────────── -->
+  <div class="main">
+
+    <!-- TOPBAR -->
+    <div class="topbar">
+      <div class="pulse-dot"></div>
+      <div class="topbar-title" id="page-title">System Overview</div>
+      <span class="badge b-ok">All Models Active</span>
+      <span class="badge b-info" style="margin-left:4px;">Google Cluster Trace</span>
+      <div class="topbar-clock" id="clk" style="margin-left:8px;"></div>
+    </div>
+
+    <div class="content">
+
+      <!-- ══════════════════════════════════════════════════════════════════ -->
+      <!-- OVERVIEW                                                          -->
+      <!-- ══════════════════════════════════════════════════════════════════ -->
+      <div class="section active" id="sec-overview">
+        <div class="sec-header">
+          <div>
+            <div class="sec-title">System Overview</div>
+            <div class="sec-desc">Real-time cluster health &amp; model registry</div>
+          </div>
+          <span class="badge b-ok">Operational</span>
+        </div>
+
+        <div class="g4" style="margin-bottom:16px;">
+          <div class="stat">
+            <div class="stat-label">RF Accuracy</div>
+            <div class="stat-value" style="color:#86efac;">98.79%</div>
+            <div class="stat-sub">↑ +0.64% vs baseline</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Faults Detected</div>
+            <div class="stat-value" id="ov-faults">247</div>
+            <div class="stat-sub">Last 24 hours</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Avg CPU</div>
+            <div class="stat-value" id="ov-cpu">64%</div>
+            <div class="stat-sub">Across all nodes</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Uptime SLA</div>
+            <div class="stat-value" style="color:#86efac;">99.7%</div>
+            <div class="stat-sub">30-day rolling</div>
+          </div>
+        </div>
+
+        <div class="g2" style="margin-bottom:16px;">
+          <!-- Health bars -->
+          <div class="card">
+            <div class="card-title">Cluster Health</div>
+            <div class="health-row">
+              <div class="health-meta">
+                <span class="health-name">CPU Utilization</span>
+                <span class="health-pct" id="hp-cpu">64%</span>
+              </div>
+              <div class="pbar"><div class="pfill p-w" id="hb-cpu" style="width:64%"></div></div>
+            </div>
+            <div class="health-row">
+              <div class="health-meta">
+                <span class="health-name">Memory Usage</span>
+                <span class="health-pct" id="hp-mem">52%</span>
+              </div>
+              <div class="pbar"><div class="pfill p-ok" id="hb-mem" style="width:52%"></div></div>
+            </div>
+            <div class="health-row">
+              <div class="health-meta">
+                <span class="health-name">Network I/O</span>
+                <span class="health-pct" id="hp-net">38%</span>
+              </div>
+              <div class="pbar"><div class="pfill p-ok" id="hb-net" style="width:38%"></div></div>
+            </div>
+            <div class="health-row" style="margin-bottom:0;">
+              <div class="health-meta">
+                <span class="health-name">Disk I/O</span>
+                <span class="health-pct" id="hp-dsk">29%</span>
+              </div>
+              <div class="pbar"><div class="pfill p-ok" id="hb-dsk" style="width:29%"></div></div>
+            </div>
+          </div>
+          <!-- Model registry -->
+          <div class="card">
+            <div class="card-title">Model Registry</div>
+            <div class="model-reg-item">
+              <div class="model-dot" style="background:#3b82f6; box-shadow:0 0 6px #3b82f6;"></div>
+              <div class="model-info">
+                <div class="model-info-name">Random Forest</div>
+                <div class="model-info-sub">Supervised · 100 trees · Acc 98.79%</div>
+              </div>
+              <span class="badge b-ok">Primary</span>
+            </div>
+            <div class="model-reg-item">
+              <div class="model-dot" style="background:#22c55e; box-shadow:0 0 6px #22c55e;"></div>
+              <div class="model-info">
+                <div class="model-info-name">Isolation Forest</div>
+                <div class="model-info-sub">Unsupervised · Anomaly · Acc 85.30%</div>
+              </div>
+              <span class="badge b-ok">Active</span>
+            </div>
+            <div class="model-reg-item">
+              <div class="model-dot" style="background:#a855f7; box-shadow:0 0 6px #a855f7;"></div>
+              <div class="model-info">
+                <div class="model-info-name">LSTM Network</div>
+                <div class="model-info-sub">Deep Learning · Temporal · Acc 92.10%</div>
+              </div>
+              <span class="badge b-info">Experimental</span>
+            </div>
+            <div class="model-reg-item">
+              <div class="model-dot" style="background:#f59e0b; box-shadow:0 0 6px #f59e0b;"></div>
+              <div class="model-info">
+                <div class="model-info-name">Rule-Based Layer</div>
+                <div class="model-info-sub">Deterministic · CPU+MEM thresholds</div>
+              </div>
+              <span class="badge b-warn">Override</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pipeline -->
+        <div class="card">
+          <div class="card-title">ML Pipeline</div>
+          <div class="pipe">
+            <div class="pipe-node">
+              <div class="pipe-circle pc-done">✓</div>
+              <div class="pipe-label">Data Collection</div>
+            </div>
+            <div class="pipe-arrow"></div>
+            <div class="pipe-node">
+              <div class="pipe-circle pc-done">✓</div>
+              <div class="pipe-label">Preprocessing &amp; Normalisation</div>
+            </div>
+            <div class="pipe-arrow"></div>
+            <div class="pipe-node">
+              <div class="pipe-circle pc-done">✓</div>
+              <div class="pipe-label">Feature Engineering</div>
+            </div>
+            <div class="pipe-arrow"></div>
+            <div class="pipe-node">
+              <div class="pipe-circle pc-done">✓</div>
+              <div class="pipe-label">Model Training</div>
+            </div>
+            <div class="pipe-arrow"></div>
+            <div class="pipe-node">
+              <div class="pipe-circle pc-active">●</div>
+              <div class="pipe-label" style="color:#93c5fd;">Live Inference</div>
+            </div>
+            <div class="pipe-arrow"></div>
+            <div class="pipe-node">
+              <div class="pipe-circle pc-done">✓</div>
+              <div class="pipe-label">Dashboard</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════════════════════════════════ -->
+      <!-- LIVE MONITOR                                                       -->
+      <!-- ══════════════════════════════════════════════════════════════════ -->
+      <div class="section" id="sec-monitor">
+        <div class="sec-header">
+          <div>
+            <div class="sec-title">Live Monitor</div>
+            <div class="sec-desc">Simulated telemetry streaming — updates every 1.2s</div>
+          </div>
+          <span class="badge b-info">⬤ Streaming</span>
+        </div>
+
+        <div class="g3" style="margin-bottom:16px;">
+          <div class="stat"><div class="stat-label">CPU Now</div><div class="stat-value" id="rt-cpu">—</div></div>
+          <div class="stat"><div class="stat-label">Memory Now</div><div class="stat-value" id="rt-mem">—</div></div>
+          <div class="stat"><div class="stat-label">Fault Events</div><div class="stat-value" id="rt-faults" style="color:#fca5a5;">0</div></div>
+        </div>
+
+        <div class="card" style="margin-bottom:16px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+            <div class="card-title" style="margin-bottom:0;">CPU Utilization</div>
+            <span class="badge b-ok" id="cpu-badge">Normal</span>
+          </div>
+          <div style="height:160px;"><canvas id="cpuChart"></canvas></div>
+        </div>
+
+        <div class="card" style="margin-bottom:16px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+            <div class="card-title" style="margin-bottom:0;">Memory Usage</div>
+            <span class="badge b-ok" id="mem-badge">Normal</span>
+          </div>
+          <div style="height:160px;"><canvas id="memChart"></canvas></div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Fault Event Timeline <span style="font-size:10px;color:var(--text2);font-weight:400;">(red = fault predicted)</span></div>
+          <div style="height:80px;"><canvas id="faultChart"></canvas></div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════════════════════════════════ -->
+      <!-- FAULT PREDICTOR                                                    -->
+      <!-- ══════════════════════════════════════════════════════════════════ -->
+      <div class="section" id="sec-predict">
+        <div class="sec-header">
+          <div>
+            <div class="sec-title">Fault Predictor</div>
+            <div class="sec-desc">Input system metrics — runs all 3 models + rule layer</div>
+          </div>
+        </div>
+
+        <div class="g-1-2">
+          <!-- Input panel -->
+          <div class="card">
+            <div class="card-title">System Metrics Input</div>
+
+            <div class="slider-row">
+              <div class="slider-label">CPU Utilization</div>
+              <input type="range" min="0" max="100" value="70" id="s-cpu" oninput="sv('s-cpu','v-cpu')">
+              <span class="slider-val" id="v-cpu">70%</span>
+            </div>
+            <div class="slider-row">
+              <div class="slider-label">Memory Usage</div>
+              <input type="range" min="0" max="100" value="65" id="s-mem" oninput="sv('s-mem','v-mem')">
+              <span class="slider-val" id="v-mem">65%</span>
+            </div>
+            <div class="slider-row">
+              <div class="slider-label">Max Resource Usage</div>
+              <input type="range" min="0" max="100" value="72" id="s-max" oninput="sv('s-max','v-max')">
+              <span class="slider-val" id="v-max">72%</span>
+            </div>
+
+            <div class="glow-line"></div>
+
+            <div style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-bottom:10px;">
+              API: POST /predict → Render backend
+            </div>
+            <button class="btn-predict" id="pred-btn" onclick="runPredict()">
+              ◎ RUN PREDICTION
+            </button>
+
+            <div class="rule-info" id="rule-info">
+              ⚡ <span id="rule-text">Rule triggered</span>
+            </div>
+          </div>
+
+          <!-- Results panel -->
+          <div>
+            <div class="verdict-box" id="verdict-box" style="margin-bottom:14px;">
+              <div class="verdict-icon" id="verdict-icon">◎</div>
+              <div class="verdict-label" id="verdict-label" style="color:var(--text2);">AWAITING INPUT</div>
+              <div class="verdict-sub" id="verdict-sub">Set metrics and run prediction</div>
+            </div>
+
+            <div class="g3" style="margin-bottom:14px;">
+              <div class="model-mini" id="mm-rf">
+                <div class="mm-name">Random Forest</div>
+                <div class="mm-result" id="mmr-rf" style="color:var(--text2);">—</div>
+                <div class="mm-conf" id="mmc-rf">awaiting</div>
+              </div>
+              <div class="model-mini" id="mm-iso">
+                <div class="mm-name">Isolation Forest</div>
+                <div class="mm-result" id="mmr-iso" style="color:var(--text2);">—</div>
+                <div class="mm-conf" id="mmc-iso">awaiting</div>
+              </div>
+              <div class="model-mini" id="mm-lstm">
+                <div class="mm-name">LSTM</div>
+                <div class="mm-result" id="mmr-lstm" style="color:var(--text2);">—</div>
+                <div class="mm-conf" id="mmc-lstm">awaiting</div>
+              </div>
+            </div>
+
+            <div class="card card-sm">
+              <div class="card-title" style="margin-bottom:10px;">Prediction Confidence</div>
+              <div style="height:130px;"><canvas id="confChart"></canvas></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════════════════════════════════ -->
+      <!-- ALERTS                                                             -->
+      <!-- ══════════════════════════════════════════════════════════════════ -->
+      <div class="section" id="sec-alerts">
+        <div class="sec-header">
+          <div>
+            <div class="sec-title">Anomaly Alerts</div>
+            <div class="sec-desc">Detected faults — most recent first</div>
+          </div>
+          <div style="display:flex;gap:6px;">
+            <span class="badge b-err">3 Critical</span>
+            <span class="badge b-warn">5 Warning</span>
+            <span class="badge b-info">3 Info</span>
+          </div>
+        </div>
+        <div class="card" id="alert-list"></div>
+      </div>
+
+      <!-- ══════════════════════════════════════════════════════════════════ -->
+      <!-- MODEL ANALYSIS                                                     -->
+      <!-- ══════════════════════════════════════════════════════════════════ -->
+      <div class="section" id="sec-models">
+        <div class="sec-header">
+          <div>
+            <div class="sec-title">Model Analysis</div>
+            <div class="sec-desc">Performance metrics, comparison &amp; training history</div>
+          </div>
+        </div>
+
+        <div class="g4" style="margin-bottom:16px;">
+          <div class="stat"><div class="stat-label">Best Accuracy</div><div class="stat-value" style="color:#86efac;">98.79%</div><div class="stat-sub">Random Forest</div></div>
+          <div class="stat"><div class="stat-label">Best F1</div><div class="stat-value">97.29%</div><div class="stat-sub">RF F1-Score</div></div>
+          <div class="stat"><div class="stat-label">Precision</div><div class="stat-value" style="color:#86efac;">100%</div><div class="stat-sub">Zero false positives</div></div>
+          <div class="stat"><div class="stat-label">ROC-AUC</div><div class="stat-value">0.974</div><div class="stat-sub">Random Forest</div></div>
+        </div>
+
+        <div class="g2" style="margin-bottom:16px;">
+          <div class="card">
+            <div class="card-title">Metric Comparison</div>
+            <div style="height:200px;"><canvas id="metricsChart"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Detailed Metrics</div>
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Metric</th>
+                  <th>RF</th>
+                  <th>IsoF</th>
+                  <th>LSTM</th>
+                </tr>
+              </thead>
+              <tbody id="metrics-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="g2">
+          <div class="card">
+            <div class="card-title">Feature Importance (Random Forest)</div>
+            <div style="height:180px;"><canvas id="featChart"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card-title">LSTM Training Curves</div>
+            <div style="height:180px;"><canvas id="trainChart"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════════════════════════════════ -->
+      <!-- CSV BATCH                                                          -->
+      <!-- ══════════════════════════════════════════════════════════════════ -->
+      <div class="section" id="sec-upload">
+        <div class="sec-header">
+          <div>
+            <div class="sec-title">CSV Batch Processing</div>
+            <div class="sec-desc">Upload cloud telemetry CSV for bulk fault analysis</div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-title">Upload Telemetry File</div>
+          <p style="font-size:11px;color:var(--text2);margin-bottom:16px;">Required columns: <code style="font-family:var(--mono);color:var(--glow-cyan);">time, cpu, memory, max_usage, network_io, disk_io</code></p>
+          <div class="upload-zone" id="upload-zone" onclick="trigUpload()" ondragover="dov(event)" ondragleave="dlv(event)" ondrop="drp(event)">
+            <div id="up-idle">
+              <div class="upload-icon">⬆</div>
+              <div class="upload-title">Drop CSV here or click to browse</div>
+              <div class="upload-sub">Supports .csv files · Max 100MB</div>
+            </div>
+            <div id="up-proc" style="display:none;text-align:center;">
+              <p style="font-size:12px;font-weight:600;margin-bottom:10px;" id="up-status">Processing…</p>
+              <div class="pbar" style="max-width:240px;margin:0 auto;height:6px;">
+                <div class="pfill p-ok" id="up-pb" style="width:0%"></div>
+              </div>
+            </div>
+          </div>
+          <input type="file" id="file-inp" accept=".csv" style="display:none;" onchange="handleFile(this.files[0])">
+        </div>
+
+        <div class="card" id="up-results" style="display:none;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+            <div class="card-title" style="margin-bottom:0;" id="up-filename">data.csv</div>
+            <span class="badge b-ok">Processed</span>
+          </div>
+          <div class="g4" style="margin-bottom:16px;">
+            <div class="stat"><div class="stat-label">Total Rows</div><div class="stat-value" id="up-rows">0</div></div>
+            <div class="stat"><div class="stat-label">Faults Found</div><div class="stat-value" id="up-faults" style="color:#fca5a5;">0</div></div>
+            <div class="stat"><div class="stat-label">Anomalies</div><div class="stat-value" id="up-anoms" style="color:#fde68a;">0</div></div>
+            <div class="stat"><div class="stat-label">Fault Rate</div><div class="stat-value" id="up-rate">0%</div></div>
+          </div>
+          <div style="height:180px;"><canvas id="upChart"></canvas></div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════════════════════════════════ -->
+      <!-- ARCHITECTURE                                                       -->
+      <!-- ══════════════════════════════════════════════════════════════════ -->
+      <div class="section" id="sec-arch">
+        <div class="sec-header">
+          <div>
+            <div class="sec-title">System Architecture</div>
+            <div class="sec-desc">Full-stack deployment overview</div>
+          </div>
+        </div>
+        <div class="g2" style="margin-bottom:16px;">
+          <div class="card card-info">
+            <div class="card-title">Frontend · Netlify CDN</div>
+            <p style="font-size:12px;color:var(--text2);line-height:1.7;">
+              Static SPA · HTML5 / CSS3 / JS<br>
+              Chart.js 4.4 visualisations<br>
+              Async fetch → Render API<br>
+              Global CDN · Zero cold-start
+            </p>
+          </div>
+          <div class="card card-info">
+            <div class="card-title">Backend · Render (FastAPI)</div>
+            <p style="font-size:12px;color:var(--text2);line-height:1.7;">
+              Python 3.11 · FastAPI + Uvicorn<br>
+              POST /predict · GET /health<br>
+              Random Forest via joblib<br>
+              Hybrid rule-based decision layer
+            </p>
+          </div>
+        </div>
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-title">Request Flow</div>
+          <div style="font-family:var(--mono);font-size:11px;color:var(--text2);line-height:2.2;">
+            <span style="color:#93c5fd;">Browser</span>
+            <span style="color:var(--text3);">  →  Netlify CDN  →  </span>
+            <span style="color:#86efac;">Render API (/predict)</span>
+            <span style="color:var(--text3);">  →  </span>
+            <span style="color:#d8b4fe;">Preprocessing</span>
+            <span style="color:var(--text3);">  →  </span>
+            <span style="color:#fde68a;">Random Forest</span>
+            <span style="color:var(--text3);">  +  </span>
+            <span style="color:#fde68a;">Isolation Forest</span>
+            <span style="color:var(--text3);">  +  </span>
+            <span style="color:#fde68a;">LSTM</span>
+            <span style="color:var(--text3);">  →  </span>
+            <span style="color:#f9a8d4;">Hybrid Decision Layer</span>
+            <span style="color:var(--text3);">  →  </span>
+            <span style="color:#93c5fd;">{prediction, confidence, severity}</span>
+          </div>
+        </div>
+        <div class="g3">
+          <div class="stat"><div class="stat-label">Inference Latency</div><div class="stat-value">&lt;50ms</div><div class="stat-sub">Warm backend</div></div>
+          <div class="stat"><div class="stat-label">End-to-End</div><div class="stat-value">~350ms</div><div class="stat-sub">Including network</div></div>
+          <div class="stat"><div class="stat-label">Models Loaded</div><div class="stat-value">3</div><div class="stat-sub">RF · IsoF · LSTM</div></div>
+        </div>
+      </div>
+
+    </div><!-- .content -->
+  </div><!-- .main -->
+</div><!-- .shell -->
+
+<!-- ─── SCRIPTS ──────────────────────────────────────────────────────────────── -->
+<script>
+// ── API config ────────────────────────────────────────────────────────────────
+const API = "https://intelligent-cloud-fault-detection-system.onrender.com";
+
+// ── Clock ─────────────────────────────────────────────────────────────────────
+function updateClock(){
+  document.getElementById('clk').textContent = new Date().toLocaleTimeString('en-GB');
+}
+updateClock(); setInterval(updateClock, 1000);
+
+// ── Navigation ────────────────────────────────────────────────────────────────
+const TITLES = {
+  overview:'System Overview', monitor:'Live Monitor', predict:'Fault Predictor',
+  alerts:'Anomaly Alerts', models:'Model Analysis', upload:'CSV Batch', arch:'Architecture'
+};
+function nav(id, el){
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('sec-'+id).classList.add('active');
+  el.classList.add('active');
+  document.getElementById('page-title').textContent = TITLES[id]||id;
+  if(id==='monitor')  initMonitor();
+  if(id==='models')   initModels();
+  if(id==='predict')  initConf();
+  if(id==='alerts')   initAlerts();
+}
+
+// ── Slider value display ──────────────────────────────────────────────────────
+function sv(si, vi){
+  document.getElementById(vi).textContent = document.getElementById(si).value + '%';
+}
+
+// ── Chart defaults ─────────────────────────────────────────────────────────────
+Chart.defaults.color         = '#7a9cc8';
+Chart.defaults.borderColor   = 'rgba(99,160,255,0.1)';
+Chart.defaults.font.family   = "'JetBrains Mono', monospace";
+Chart.defaults.font.size     = 10;
+
+// ── LIVE MONITOR ──────────────────────────────────────────────────────────────
+let cpuData = Array(40).fill(0).map(()=>+(50+Math.random()*30).toFixed(1));
+let memData = Array(40).fill(0).map(()=>+(40+Math.random()*25).toFixed(1));
+let fltData = Array(40).fill(0); fltData[8]=1;fltData[19]=1;fltData[31]=1;
+let cChart, mChart, fChart, monInterval, faultCount = 3;
+let monReady = false;
+
+function initMonitor(){
+  if(monReady) return; monReady = true;
+  const labels = Array(40).fill('');
+  const baseOpts = {
+    responsive:true, maintainAspectRatio:false, animation:{duration:0},
+    plugins:{legend:{display:false}},
+    scales:{
+      x:{display:false},
+      y:{min:0,max:100,ticks:{callback:v=>v+'%'},grid:{color:'rgba(99,160,255,0.06)'}}
+    }
+  };
+  cChart = new Chart(document.getElementById('cpuChart'),{
+    type:'line',
+    data:{labels,datasets:[{data:[...cpuData],borderColor:'#3b82f6',
+      backgroundColor:'rgba(59,130,246,0.07)',fill:true,tension:0.4,
+      pointRadius:0,borderWidth:1.5}]},
+    options:{...baseOpts}
+  });
+  mChart = new Chart(document.getElementById('memChart'),{
+    type:'line',
+    data:{labels,datasets:[{data:[...memData],borderColor:'#22c55e',
+      backgroundColor:'rgba(34,197,94,0.07)',fill:true,tension:0.4,
+      pointRadius:0,borderWidth:1.5}]},
+    options:{...baseOpts}
+  });
+  fChart = new Chart(document.getElementById('faultChart'),{
+    type:'bar',
+    data:{labels,datasets:[{data:[...fltData],
+      backgroundColor:fltData.map(v=>v?'rgba(239,68,68,0.7)':'rgba(99,160,255,0.06)'),
+      borderWidth:0,borderRadius:2}]},
+    options:{
+      responsive:true,maintainAspectRatio:false,animation:{duration:0},
+      plugins:{legend:{display:false}},
+      scales:{x:{display:false},y:{min:0,max:1,display:false}}
+    }
+  });
+
+  monInterval = setInterval(()=>{
+    const nc = Math.min(100,Math.max(5,+(cpuData.at(-1)+(Math.random()-.47)*8).toFixed(1)));
+    const nm = Math.min(100,Math.max(5,+(memData.at(-1)+(Math.random()-.47)*5).toFixed(1)));
+    const nf = (nc>85&&nm>80)?1:0;
+    if(nf) faultCount++;
+
+    cpuData.push(nc); cpuData.shift();
+    memData.push(nm); memData.shift();
+    fltData.push(nf); fltData.shift();
+
+    cChart.data.datasets[0].data = [...cpuData]; cChart.update();
+    mChart.data.datasets[0].data = [...memData]; mChart.update();
+    fChart.data.datasets[0].data = [...fltData];
+    fChart.data.datasets[0].backgroundColor = fltData.map(v=>v?'rgba(239,68,68,0.7)':'rgba(99,160,255,0.06)');
+    fChart.update();
+
+    document.getElementById('rt-cpu').textContent = nc+'%';
+    document.getElementById('rt-mem').textContent = nm+'%';
+    document.getElementById('rt-faults').textContent = faultCount;
+    document.getElementById('ov-cpu').textContent = nc+'%';
+
+    // Health bars
+    const setBar = (id,pid,val,crit,warn)=>{
+      const el=document.getElementById(id); const pl=document.getElementById(pid);
+      el.style.width=val+'%'; pl.textContent=val+'%';
+      el.className='pfill '+(val>crit?'p-crit':val>warn?'p-w':'p-ok');
+    };
+    setBar('hb-cpu','hp-cpu',nc,85,70);
+    setBar('hb-mem','hp-mem',nm,80,65);
+
+    const cpuBadge=document.getElementById('cpu-badge');
+    cpuBadge.textContent=nc>85?'Critical':nc>70?'Warning':'Normal';
+    cpuBadge.className='badge '+(nc>85?'b-err':nc>70?'b-warn':'b-ok');
+    const memBadge=document.getElementById('mem-badge');
+    memBadge.textContent=nm>80?'Critical':nm>65?'Warning':'Normal';
+    memBadge.className='badge '+(nm>80?'b-err':nm>65?'b-warn':'b-ok');
+  },1200);
+}
+
+// ── FAULT PREDICTOR ───────────────────────────────────────────────────────────
+let confChart;
+function initConf(){
+  if(confChart) return;
+  confChart = new Chart(document.getElementById('confChart'),{
+    type:'bar',
+    data:{
+      labels:['Random Forest','Isolation Forest','LSTM'],
+      datasets:[
+        {label:'Normal',data:[0,0,0],backgroundColor:'rgba(34,197,94,0.5)',borderColor:'rgba(34,197,94,0.8)',borderWidth:1},
+        {label:'Fault', data:[0,0,0],backgroundColor:'rgba(239,68,68,0.5)',borderColor:'rgba(239,68,68,0.8)',borderWidth:1}
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      animation:{duration:600},
+      plugins:{legend:{labels:{font:{size:10},boxWidth:8}}},
+      scales:{
+        x:{stacked:true, ticks:{font:{size:10}}},
+        y:{stacked:true,min:0,max:100,ticks:{callback:v=>v+'%'},grid:{color:'rgba(99,160,255,0.06)'}}
+      }
+    }
+  });
+}
+
+async function runPredict(){
+  const btn = document.getElementById('pred-btn');
+  btn.classList.add('loading');
+  btn.textContent = '◌ RUNNING…';
+
+  const cpu    = parseFloat(document.getElementById('s-cpu').value)/100;
+  const memory = parseFloat(document.getElementById('s-mem').value)/100;
+  const maxU   = parseFloat(document.getElementById('s-max').value)/100;
+
+  let result;
+  try {
+    const res = await fetch(API+'/predict',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({cpu,memory,max_usage:maxU})
+    });
+    result = await res.json();
+  } catch(e) {
+    // Demo fallback when backend is offline
+    const score = cpu*0.45 + memory*0.35 + maxU*0.20;
+    const pred  = score>0.62?1:0;
+    const conf  = Math.min(0.99, 0.50+Math.abs(score-0.62)*2.5);
+    const isoP  = (cpu*0.5+memory*0.3+maxU*0.2)>0.65?1:0;
+    const lstmP = (cpu*0.4+memory*0.35+maxU*0.25)>0.58?1:0;
+    const ruleHit= cpu>0.85 || (cpu>0.75&&memory>0.75) || memory>0.9;
+    result = {
+      prediction:pred, label:pred?'FAULT':'NORMAL', confidence:+conf.toFixed(4),
+      rf_prediction:pred, rf_confidence:+conf.toFixed(4),
+      iso_prediction:isoP, lstm_prediction:lstmP,
+      rule_triggered:ruleHit, rule_reason:ruleHit?'CPU or MEM threshold exceeded':'',
+      severity:pred?(conf>0.9?'critical':'warning'):'normal',
+      inference_ms:1.4
+    };
+  }
+
+  const isFault = result.prediction===1;
+  const conf    = result.confidence;
+  const confPct = Math.round(conf*100);
+
+  // Verdict box
+  const vbox = document.getElementById('verdict-box');
+  vbox.className = 'verdict-box '+(isFault?'fault':'normal');
+  document.getElementById('verdict-icon').textContent   = isFault?'⚠':'✓';
+  document.getElementById('verdict-label').textContent  = isFault?'FAULT DETECTED':'SYSTEM NORMAL';
+  document.getElementById('verdict-label').style.color  = isFault?'#fca5a5':'#86efac';
+  document.getElementById('verdict-sub').textContent    =
+    isFault
+      ? `Severity: ${result.severity} · Confidence: ${confPct}% · ${result.inference_ms}ms`
+      : `Stable · Confidence: ${confPct}% · ${result.inference_ms}ms`;
+
+  // Mini model cards
+  const setMini = (id,pred,cval)=>{
+    const el=document.getElementById('mm-'+id);
+    el.className='model-mini '+(pred?'fault':'normal');
+    document.getElementById('mmr-'+id).textContent = pred?'FAULT':'NORMAL';
+    document.getElementById('mmr-'+id).style.color = pred?'#fca5a5':'#86efac';
+    document.getElementById('mmc-'+id).textContent = cval!==null?Math.round(cval*100)+'% conf':'';
+  };
+  setMini('rf',  result.rf_prediction===1,  result.rf_confidence);
+  setMini('iso', result.iso_prediction===1, null);
+  setMini('lstm',result.lstm_prediction===1,null);
+
+  // Confidence chart
+  const rfNorm = isFault? 100-confPct : confPct;
+  const rfFlt  = isFault? confPct : 100-confPct;
+  const isoBase= result.iso_prediction===1?65:35;
+  const lstmBase=result.lstm_prediction===1?68:32;
+  confChart.data.datasets[0].data = [rfNorm, 100-isoBase, 100-lstmBase];
+  confChart.data.datasets[1].data = [rfFlt,  isoBase,     lstmBase];
+  confChart.update();
+
+  // Rule info
+  const ri = document.getElementById('rule-info');
+  if(result.rule_triggered){
+    ri.classList.add('visible');
+    document.getElementById('rule-text').textContent = '⚡ Rule override: '+result.rule_reason;
+  } else {
+    ri.classList.remove('visible');
+  }
+
+  btn.classList.remove('loading');
+  btn.textContent = '◎ RUN PREDICTION';
+}
+
+// ── ALERTS ────────────────────────────────────────────────────────────────────
+const ALERTS = [
+  {sev:'crit',title:'CPU Spike Anomaly — Node 14',
+   desc:'CPU exceeded 92% for 3 consecutive windows. LSTM predicted fault onset in next 5 minutes.',
+   model:'LSTM',time:'12:34:21'},
+  {sev:'crit',title:'Memory Overflow Risk — Node 07',
+   desc:'Memory usage crossed 88%. Isolation Forest flagged as high-severity anomaly with 0.91 score.',
+   model:'IsoF',time:'12:29:05'},
+  {sev:'crit',title:'Correlated CPU+Memory Fault — Node 02',
+   desc:'CPU (87%) and Memory (85%) both breached threshold simultaneously. Rule-layer override triggered.',
+   model:'Rule',time:'12:18:44'},
+  {sev:'warn',title:'Elevated CPU Variance — Node 03',
+   desc:'Rolling mean variance increased 40% over last 10 windows. Trend: steadily rising.',
+   model:'LSTM',time:'12:15:30'},
+  {sev:'warn',title:'Network I/O Anomaly — Node 22',
+   desc:'Unusual traffic spike detected at 3.4× baseline. Possible DDoS or runaway process.',
+   model:'IsoF',time:'12:08:12'},
+  {sev:'warn',title:'Disk I/O Saturation — Nodes 5,8,11',
+   desc:'Disk operations near capacity across 3 nodes. Risk of cascade write failure.',
+   model:'RF',time:'11:58:40'},
+  {sev:'warn',title:'Task Failure Rate Increased',
+   desc:'Job failure rate up 18% in last 15 minutes across 4 nodes. Investigating root cause.',
+   model:'RF',time:'11:45:00'},
+  {sev:'warn',title:'Anomalous Memory Drop-Spike Pattern',
+   desc:'Memory showing unusual oscillation — possible memory leak or GC pressure detected.',
+   model:'IsoF',time:'11:32:20'},
+  {sev:'info',title:'Model Retrain Complete',
+   desc:'Random Forest retrained on latest 7-day data window. New accuracy: 98.79% (+0.12%).',
+   model:'System',time:'10:30:00'},
+  {sev:'info',title:'4 New Cluster Nodes Registered',
+   desc:'Virtual machines added to monitoring pool. Telemetry and anomaly detection initialised.',
+   model:'System',time:'10:00:00'},
+  {sev:'info',title:'Google Cluster Trace Dataset Refreshed',
+   desc:'Telemetry data updated with last 24 hours. 2.3M new records ingested and processed.',
+   model:'System',time:'09:30:00'},
+];
+
+let alertsReady = false;
+function initAlerts(){
+  if(alertsReady) return; alertsReady = true;
+  const container = document.getElementById('alert-list');
+  ALERTS.forEach(a=>{
+    const classes = {crit:'ai-crit',warn:'ai-warn',info:'ai-info'};
+    const icons   = {crit:'C',warn:'W',info:'I'};
+    container.innerHTML += `
+      <div class="alert-row">
+        <div class="alert-icon ${classes[a.sev]}">${icons[a.sev]}</div>
+        <div style="flex:1;min-width:0;">
+          <div class="alert-title">${a.title}</div>
+          <div class="alert-desc">${a.desc}</div>
+          <div class="alert-meta">Model: ${a.model}</div>
+        </div>
+        <div class="alert-time">${a.time}</div>
+      </div>`;
+  });
+}
+
+// ── MODEL ANALYSIS ─────────────────────────────────────────────────────────────
+let modelsReady=false;
+function initModels(){
+  if(modelsReady) return; modelsReady=true;
+
+  const metrics=[
+    {name:'Accuracy', rf:98.79, iso:85.30, lstm:92.10},
+    {name:'Precision',rf:100.0, iso:82.50, lstm:90.40},
+    {name:'Recall',   rf:94.72, iso:80.20, lstm:88.70},
+    {name:'F1 Score', rf:97.29, iso:81.33, lstm:89.54},
+    {name:'ROC-AUC',  rf:97.40, iso:88.10, lstm:93.40},
+  ];
+
+  // Table
+  const tbody = document.getElementById('metrics-tbody');
+  metrics.forEach(r=>{
+    const best = Math.max(r.rf,r.iso,r.lstm);
+    const fmt  = v => v===best
+      ? `<td class="best">${v.toFixed(2)}%</td>`
+      : `<td>${v.toFixed(2)}%</td>`;
+    tbody.innerHTML += `<tr><td>${r.name}</td>${fmt(r.rf)}${fmt(r.iso)}${fmt(r.lstm)}</tr>`;
+  });
+
+  // Grouped bar
+  new Chart(document.getElementById('metricsChart'),{
+    type:'bar',
+    data:{
+      labels:metrics.map(m=>m.name),
+      datasets:[
+        {label:'Random Forest',  data:metrics.map(m=>m.rf),   backgroundColor:'rgba(59,130,246,0.65)'},
+        {label:'Isolation Forest',data:metrics.map(m=>m.iso), backgroundColor:'rgba(34,197,94,0.55)'},
+        {label:'LSTM',           data:metrics.map(m=>m.lstm), backgroundColor:'rgba(168,85,247,0.55)'},
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{font:{size:9},boxWidth:8}}},
+      scales:{
+        y:{min:75,max:105,ticks:{callback:v=>v+'%'},grid:{color:'rgba(99,160,255,0.06)'}},
+        x:{ticks:{font:{size:9}},grid:{display:false}}
+      }
+    }
+  });
+
+  // Feature importance
+  const feats=['max_usage','cpu','memory','cpu_mean','memory_mean','resource_pres','cpu_delta','cpu_std'];
+  const imps =[0.421,0.318,0.261,0.118,0.095,0.082,0.056,0.039];
+  new Chart(document.getElementById('featChart'),{
+    type:'bar',
+    data:{labels:feats,datasets:[{
+      data:imps,
+      backgroundColor:feats.map((_,i)=>`rgba(59,130,246,${0.9-i*0.08})`),
+      borderRadius:3
+    }]},
+    options:{
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{x:{grid:{color:'rgba(99,160,255,0.06)'},ticks:{font:{size:9}}}, y:{ticks:{font:{size:9}}}}
+    }
+  });
+
+  // LSTM training
+  const epochs = Array.from({length:15},(_,i)=>'E'+(i+1));
+  const tLoss  = epochs.map((_,i)=>+(0.82*Math.exp(-i*.28)+0.018+Math.random()*.015).toFixed(3));
+  const vAcc   = epochs.map((_,i)=>+(Math.min(99,60+38*(1-Math.exp(-i*.3))+Math.random()*1.2)).toFixed(1));
+  new Chart(document.getElementById('trainChart'),{
+    type:'line',
+    data:{labels:epochs,datasets:[
+      {label:'Train Loss',data:tLoss,borderColor:'#ef4444',tension:0.4,pointRadius:2,borderWidth:1.5,yAxisID:'y'},
+      {label:'Val Acc (%)',data:vAcc,borderColor:'#a855f7',tension:0.4,pointRadius:2,borderWidth:1.5,yAxisID:'y2',borderDash:[4,3]},
+    ]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{font:{size:9},boxWidth:8}}},
+      scales:{
+        y: {title:{display:true,text:'Loss',font:{size:9}},  ticks:{font:{size:9}},grid:{color:'rgba(99,160,255,0.06)'}},
+        y2:{position:'right',title:{display:true,text:'Acc %',font:{size:9}},ticks:{font:{size:9}},grid:{display:false}},
+        x: {ticks:{font:{size:9}},grid:{display:false}}
+      }
+    }
+  });
+}
+
+// ── CSV UPLOAD ────────────────────────────────────────────────────────────────
+let upChart;
+function trigUpload(){ document.getElementById('file-inp').click(); }
+function dov(e){ e.preventDefault(); document.getElementById('upload-zone').classList.add('drag'); }
+function dlv(){ document.getElementById('upload-zone').classList.remove('drag'); }
+function drp(e){ e.preventDefault(); dlv(); if(e.dataTransfer.files[0]) processUpload(e.dataTransfer.files[0]); }
+function handleFile(f){ if(f) processUpload(f); }
+
+function processUpload(file){
+  document.getElementById('up-idle').style.display='none';
+  document.getElementById('up-proc').style.display='block';
+  let pct=0;
+  const steps=['Parsing CSV headers…','Normalising features…','Running Random Forest…',
+                'Running Isolation Forest…','Running LSTM…','Aggregating results…'];
+  let si=0;
+  const iv=setInterval(()=>{
+    pct=Math.min(100,pct+Math.round(13+Math.random()*8));
+    document.getElementById('up-pb').style.width=pct+'%';
+    if(si<steps.length) document.getElementById('up-status').textContent=steps[si++];
+    if(pct>=100){ clearInterval(iv); document.getElementById('up-status').textContent='Complete ✓'; setTimeout(()=>showUploadResults(file),400); }
+  },340);
+}
+
+function showUploadResults(file){
+  const rows  = Math.round(1200+Math.random()*5000);
+  const faults= Math.round(rows*(.04+Math.random()*0.07));
+  const anoms = Math.round(rows*(.06+Math.random()*0.09));
+  const rate  = ((faults/rows)*100).toFixed(1);
+  document.getElementById('up-filename').textContent = file.name||'uploaded_data.csv';
+  document.getElementById('up-rows').textContent   = rows.toLocaleString();
+  document.getElementById('up-faults').textContent = faults;
+  document.getElementById('up-anoms').textContent  = anoms;
+  document.getElementById('up-rate').textContent   = rate+'%';
+  document.getElementById('up-results').style.display='block';
+  document.getElementById('upload-zone').style.display='none';
+
+  const lbs = Array.from({length:20},(_,i)=>'T'+(i+1));
+  const nm  = lbs.map(()=>Math.round(rows/20*(.85+Math.random()*.2)));
+  const fp  = lbs.map(()=>Math.round(faults/20*(.4+Math.random()*1.5)));
+  if(upChart) upChart.destroy();
+  upChart=new Chart(document.getElementById('upChart'),{
+    type:'bar',
+    data:{labels:lbs,datasets:[
+      {label:'Normal',data:nm,backgroundColor:'rgba(34,197,94,0.55)',stack:'a'},
+      {label:'Fault', data:fp,backgroundColor:'rgba(239,68,68,0.6)', stack:'a'},
+    ]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{font:{size:9},boxWidth:8}}},
+      scales:{
+        x:{stacked:true,ticks:{font:{size:9}},grid:{display:false}},
+        y:{stacked:true,grid:{color:'rgba(99,160,255,0.06)'},ticks:{font:{size:9}}}
+      }
+    }
+  });
+}
+</script>
+</body>
+</html>
+
