@@ -1,5 +1,0 @@
-lstm_env/
-__pycache__/
-*.pyc
-data/raw/
-*.csv
