@@ -72,14 +72,14 @@ def fig1_architecture():
     # ── Layer definitions ──
     layers = [
         # (x, y, w, h, color, border, label, sublabel, icon)
-        (0.4, 3.5, 1.8, 2.2, "#0F2540", BLUE,   "DATA\nINGESTION", "Google Cluster\nTrace v3", "⬇"),
-        (2.6, 3.5, 1.8, 2.2, "#0F2540", CYAN,   "PRE-\nPROCESSING", "Parse · Impute\nNormalise", "⚙"),
-        (4.8, 3.5, 1.8, 2.2, "#0F2540", PURPLE, "FEATURE\nENGINEERING", "Rolling means\nDeltas · Pressure", "◈"),
-        (7.0, 4.5, 1.8, 1.2, "#1A0F2E", BLUE,   "RANDOM FOREST", "100 trees · Supervised", "🌲"),
-        (7.0, 3.1, 1.8, 1.1, "#0F2010", GREEN,  "ISOLATION FOREST", "Unsupervised · Anomaly", "○"),
-        (7.0, 1.9, 1.8, 1.0, "#1A0A2E", PURPLE, "LSTM Network", "Temporal · Experimental", "∿"),
-        (9.2, 3.5, 1.8, 2.2, "#2D1500", AMBER,  "HYBRID\nDECISION", "ML + Rule-based\nOverride logic", "⚡"),
-        (11.4, 3.5, 1.8, 2.2, "#0F2540", GREEN, "PREDICTION\n& OUTPUT", "Fault / Normal\nConfidence score", "✓"),
+        (0.4, 3.5, 1.8, 2.2, "#FFFFFF", BLUE,   "DATA\nINGESTION", "Google Cluster\nTrace v3", "⬇"),
+        (2.6, 3.5, 1.8, 2.2, "#FFFFFF", CYAN,   "PRE-\nPROCESSING", "Parse · Impute\nNormalise", "⚙"),
+        (4.8, 3.5, 1.8, 2.2, "#FFFFFF", PURPLE, "FEATURE\nENGINEERING", "Rolling means\nDeltas · Pressure", "◈"),
+        (7.0, 4.5, 1.8, 1.2, "#FFFFFF", BLUE,   "RANDOM FOREST", "100 trees · Supervised", "🌲"),
+        (7.0, 3.1, 1.8, 1.1, "#FFFFFF", GREEN,  "ISOLATION FOREST", "Unsupervised · Anomaly", "○"),
+        (7.0, 1.9, 1.8, 1.0, "#FFFFFF", PURPLE, "LSTM Network", "Temporal · Experimental", "∿"),
+        (9.2, 3.5, 1.8, 2.2, "#FFFFFF", AMBER,  "HYBRID\nDECISION", "ML + Rule-based\nOverride logic", "⚡"),
+        (11.4, 3.5, 1.8, 2.2, "#FFFFFF", GREEN, "PREDICTION\n& OUTPUT", "Fault / Normal\nConfidence score", "✓"),
     ]
 
     def draw_box(x, y, w, h, fc, bc, label, sub, icon):
@@ -210,7 +210,7 @@ def fig3_confusion_matrix():
     # Left: heatmap
     ax = axes[0]; ax.set_facecolor(BG2)
     cmap = LinearSegmentedColormap.from_list('icfds',
-                                              ['#0B1120', '#0D2B52', '#1D4ED8', '#3B82F6'])
+                                              ['#F0F0F0', '#D4E4FF', '#7FB3FF', '#3B82F6'])
     im = ax.imshow(cm, cmap=cmap, aspect='auto', vmin=0, vmax=9200)
 
     for i in range(2):
@@ -526,7 +526,7 @@ def fig8_hybrid_decision():
     ax.text(5.5, 8.35, "ML predictions combined with deterministic rule overrides",
             color="#666666", fontsize=8.5, ha='center', fontfamily='monospace')
 
-    def box(x, y, w, h, label, sub='', fc=BG3, bc=BLUE, fontsize=9, radius=0.12):
+    def box(x, y, w, h, label, sub='', fc="#FFFFFF", bc=BLUE, fontsize=9, radius=0.12):
         p = FancyBboxPatch((x-w/2, y-h/2), w, h,
                            boxstyle=f"round,pad={radius}",
                            facecolor=fc, edgecolor=bc, linewidth=1.8, zorder=3)
@@ -560,7 +560,7 @@ def fig8_hybrid_decision():
 
     # START
     box(5.5, 8.0, 2.0, 0.55, "INPUT METRICS",
-        "cpu · memory · max_usage", fc="#0F2540", bc=CYAN, fontsize=8)
+        "cpu · memory · max_usage", fc="#FFFFFF", bc=CYAN, fontsize=8)
 
     arr(5.5, 7.72, 5.5, 7.25)
 
@@ -572,7 +572,7 @@ def fig8_hybrid_decision():
     arr(7.1, 6.85, 7.8, 6.85, col=GREY)
 
     # Rule 1 → FAULT
-    box(3.5, 5.6, 2.2, 0.55, "FAULT", "Rule: CPU critically high", fc="#500A0A", bc=RED)
+    box(3.5, 5.6, 2.2, 0.55, "FAULT", "Rule: CPU critically high", fc="#FFFFFF", bc=RED)
     arr(5.5, 5.9, 4.7, 5.6, col=RED, label='')
 
     # Rule 2
@@ -583,7 +583,7 @@ def fig8_hybrid_decision():
     arr(9.4, 6.85, 10.2, 6.85, col=GREY)
 
     # Rule 2 → FAULT
-    box(7.8, 5.6, 2.2, 0.55, "FAULT", "Rule: Resource saturation", fc="#500A0A", bc=AMBER)
+    box(7.8, 5.6, 2.2, 0.55, "FAULT", "Rule: Resource saturation", fc="#FFFFFF", bc=AMBER)
     arr(7.8, 5.9, 7.8, 5.88, col=AMBER)
     # connect to same fault box via side
     ax.annotate('', xy=(3.5, 5.6), xytext=(6.7, 5.6),
@@ -595,7 +595,7 @@ def fig8_hybrid_decision():
     ax.text(10.3, 6.15, "YES", color=RED, fontsize=7, fontfamily='monospace')
     ax.text(10.3, 6.82, "NO ↓", color=GREY, fontsize=7, fontfamily='monospace')
 
-    box(10.2, 5.6, 1.6, 0.5, "FAULT", "MEM critical", fc="#500A0A", bc=RED, fontsize=7)
+    box(10.2, 5.6, 1.6, 0.5, "FAULT", "MEM critical", fc="#FFFFFF", bc=RED, fontsize=7)
 
     # NO path → ML
     arr(5.5, 7.72, 5.5, 7.25)
@@ -606,9 +606,9 @@ def fig8_hybrid_decision():
     ax.text(8.2, 5.3, "NO — defer to ML", color=BLUE, fontsize=7.5, fontfamily='monospace')
 
     # ML models
-    box(2.8, 4.35, 2.0, 0.55, "Random Forest", "predict_proba(X)", fc="#0F2540", bc=BLUE, fontsize=8)
-    box(5.5, 4.35, 2.0, 0.55, "Isolation Forest", "anomaly_score(X)", fc="#0F2010", bc=GREEN, fontsize=8)
-    box(8.2, 4.35, 2.0, 0.55, "LSTM Network", "sequence_pred(X)", fc="#1A0A2E", bc=PURPLE, fontsize=8)
+    box(2.8, 4.35, 2.0, 0.55, "Random Forest", "predict_proba(X)", fc="#FFFFFF", bc=BLUE, fontsize=8)
+    box(5.5, 4.35, 2.0, 0.55, "Isolation Forest", "anomaly_score(X)", fc="#FFFFFF", bc=GREEN, fontsize=8)
+    box(8.2, 4.35, 2.0, 0.55, "LSTM Network", "sequence_pred(X)", fc="#FFFFFF", bc=PURPLE, fontsize=8)
 
     arr(5.5, 4.65, 2.8, 4.63, col=BLUE)
     arr(5.5, 4.65, 5.5, 4.63, col=GREEN)
@@ -619,19 +619,19 @@ def fig8_hybrid_decision():
     arr(5.5, 4.07, 5.5, 3.5, col=GREEN)
     arr(8.2, 4.07, 5.5, 3.5, col=PURPLE)
     box(5.5, 3.2, 3.0, 0.65, "ENSEMBLE AGGREGATE",
-        "majority vote · max confidence", fc="#1A1A00", bc=AMBER, fontsize=8)
+        "majority vote · max confidence", fc="#FFFFFF", bc=AMBER, fontsize=8)
 
     arr(5.5, 2.87, 5.5, 2.35)
 
     # Final verdict
     box(5.5, 2.05, 2.6, 0.55, "FINAL PREDICTION",
-        "label + confidence + severity", fc="#0F2540", bc=CYAN, fontsize=8)
+        "label + confidence + severity", fc="#FFFFFF", bc=CYAN, fontsize=8)
 
     arr(5.5, 1.77, 3.5, 1.25, col=GREEN, rad=-0.2)
     arr(5.5, 1.77, 7.5, 1.25, col=RED,   rad=0.2)
 
-    box(3.5, 0.95, 2.2, 0.5, "✓  NORMAL", "Confidence ≥ threshold", fc="#0A2010", bc=GREEN, fontsize=8)
-    box(7.5, 0.95, 2.2, 0.5, "⚠  FAULT",  "Alert + severity level", fc="#300A0A", bc=RED, fontsize=8)
+    box(3.5, 0.95, 2.2, 0.5, "✓  NORMAL", "Confidence ≥ threshold", fc="#FFFFFF", bc=GREEN, fontsize=8)
+    box(7.5, 0.95, 2.2, 0.5, "⚠  FAULT",  "Alert + severity level", fc="#FFFFFF", bc=RED, fontsize=8)
 
     save("fig8_hybrid_decision.png")
 
@@ -678,7 +678,7 @@ def fig9_preprocessing():
         w, h = 1.8, 3.6
         p = FancyBboxPatch((x-w/2, 0.9), w, h,
                            boxstyle="round,pad=0.1",
-                           facecolor=fc, edgecolor=bc, linewidth=1.8, zorder=3)
+                           facecolor="#FFFFFF", edgecolor=bc, linewidth=1.8, zorder=3)
         ax.add_patch(p)
         ax.text(x, 4.35, title, ha='center', va='center',
                 color="#000000", fontsize=8, fontweight='bold',
@@ -804,7 +804,7 @@ def fig11_deployment():
     def layer_box(x, y, w, h, title, items, bc, fc):
         p = FancyBboxPatch((x, y), w, h,
                            boxstyle="round,pad=0.12",
-                           facecolor=fc, edgecolor=bc, linewidth=2, zorder=3)
+                           facecolor="#FFFFFF", edgecolor=bc, linewidth=2, zorder=3)
         ax.add_patch(p)
         ax.text(x+w/2, y+h-0.28, title, ha='center', va='center',
                 color="#000000", fontsize=9.5, fontweight='bold',
